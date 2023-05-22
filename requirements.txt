@@ -7,7 +7,7 @@ cryptography==40.0.2
 hyperlink==21.0.0
 idna==3.4
 incremental==22.10.0
-logging==0.4.9.6
+#logging==0.4.9.6
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
 pycparser==2.21
