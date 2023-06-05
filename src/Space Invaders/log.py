@@ -252,7 +252,10 @@ class Subcribe():
         if self.smile_queue:
             self.smile_queue.put(data['lAct'])
         if self.blink_queue:
-            self.blink_queue.put(data['eyeAct'])
+            if data['eyeAct'] == "blink" or data['eyeAct'] == "winkL" or data['eyeAct'] == "winkR":
+                self.blink_queue.put("blink")
+            else:
+                self.blink_queue.put(data['eyeAct'])
 
 
     # callbacks functions

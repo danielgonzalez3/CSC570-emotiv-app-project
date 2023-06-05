@@ -523,6 +523,7 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
                 smile = False
 
         if not blink_queue.empty():
+            #  or blink_queue.get() == "winkL" or blink_queue.get() == "winkR"
             if blink_queue.get() == "blink":
                 blink = True
             else:
