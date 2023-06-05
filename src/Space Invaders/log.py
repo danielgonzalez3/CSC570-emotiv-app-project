@@ -22,7 +22,7 @@ def get_pad_vector(data):
     fused_vector = [0, 0, 0]
     for vector in mapping.values():
         fused_vector = [x + y for x, y in zip(fused_vector, vector)]
-    print(pad_mapping)
+    # print(pad_mapping)
     return fused_vector
 
 def get_engagement_vector(data):
@@ -225,7 +225,7 @@ class Subcribe():
         data = kwargs.get('data')
 
 
-        print('pm data: {}'.format(data))
+        # print('pm data: {}'.format(data))
         fused_vector = get_pad_vector(data)
         engagement = get_engagement_vector(data)
         if self.fused_queue:

@@ -4,7 +4,7 @@
 # 11-April-2020, 03:04 AM (IST)
 from cortex import Cortex
 import multiprocessing
-
+import time
 import pygame
 import random
 import math
@@ -28,7 +28,7 @@ kills = 0
 difficulty = 1
 level = 1
 max_kills_to_difficulty_up = 5
-max_difficulty_to_level_up = 5
+max_difficulty_to_level_up = 2
 initial_player_velocity = 3.0
 initial_enemy_velocity = 1.0
 weapon_shot_velocity = 5.0
@@ -84,8 +84,10 @@ def init_background_music():
     if difficulty == 1:
         mixer.quit()
         mixer.init()
-    if difficulty <= 6:
-        mixer.music.load(background_music_paths[difficulty - 1])
+    if 1 <= difficulty <= 6:
+        mixer.music.load(background_music_paths[int(difficulty) - 1])
+    elif difficulty < 1:
+        mixer.music.load(background_music_paths[0])
     else:
         mixer.music.load(background_music_paths[5])
     mixer.music.play(-1)
@@ -240,16 +242,20 @@ def level_up():
     #  future features:
     #  1. create player profile ad store highest score to DB
     #  2. multiplayer
-    if level % 3 == 0:
+    if level % 2 == 0:
         player.dx += 1
         bullet.dy += 1
-        max_difficulty_to_level_up += 1
+        max_difficulty_to_level_up += 2
         for each_laser in lasers:
             each_laser.shoot_probability += 0.1
             if each_laser.shoot_probability > 1.0:
                 each_laser.shoot_probability = 1.0
-    if max_difficulty_to_level_up > 7:
-        max_difficulty_to_level_up = 7
+            each_laser.relaxation_time -= 10
+            if each_laser.relaxation_time < 5:
+                each_laser.relaxation_time = 5
+    if max_difficulty_to_level_up > 9:
+        max_difficulty_to_level_up = 9
+
 
     font = pygame.font.SysFont("freesansbold", 64)
     gameover_sprint = font.render("LEVEL UP", True, (255, 255, 255))
@@ -277,8 +283,7 @@ def kill_enemy(player_obj, bullet_obj, enemy_obj):
     kills += 1
     if kills % max_kills_to_difficulty_up == 0:
         difficulty += 1
-        if (difficulty == max_difficulty_to_level_up) and (life != 0):
-            level_up()
+
         init_background_music()
     print("Score:", score)
     print("level:", level)
@@ -296,6 +301,21 @@ def gameover_screen():
     font = pygame.font.SysFont("freesansbold", 64)
     gameover_sprint = font.render("GAME OVER", True, (255, 255, 255))
     window.blit(gameover_sprint, (WIDTH / 2 - 140, HEIGHT / 2 - 32))
+    pygame.display.update()
+
+    mixer.music.stop()
+    game_over_sound.play()
+    time.sleep(13.0)
+    mixer.quit()
+
+
+def gameover_screen_no_engagement():
+    scoreboard()
+    font = pygame.font.SysFont("freesansbold", 64)
+    gameover_sprint = font.render("GAME OVER", True, (255, 255, 255))
+    window.blit(gameover_sprint, (WIDTH / 2 - 140, HEIGHT / 2 - 32))
+    gameover_engagement_sprint = font.render("Please pay more attention!", True, (255, 255, 255))
+    window.blit(gameover_engagement_sprint, (WIDTH / 2 - 250, HEIGHT / 2 - 0))
     pygame.display.update()
 
     mixer.music.stop()
@@ -325,6 +345,30 @@ def gameover():
     print("----------------")
     running = False
     gameover_screen()
+
+def gameover_no_engagement():
+    global running
+    global score
+    global highest_score
+
+    if score > highest_score:
+        highest_score = score
+
+    # console display
+    print("----------------")
+    print("GAME OVER !!")
+    print("----------------")
+    print("PLEASE PAY MORE ATTENTION TO THE GAME!")
+    print("----------------")
+    print("you died at")
+    print("Level:", level)
+    print("difficulty:", difficulty)
+    print("Your Score:", score)
+    print("----------------")
+    print("Try Again !!")
+    print("----------------")
+    running = False
+    gameover_screen_no_engagement()
 
 
 def kill_player(player_obj, enemy_obj, laser_obj):
@@ -430,7 +474,7 @@ def init_game():
     laser_dx = 0
     laser_dy = weapon_shot_velocity
     shoot_probability = 0.3
-    relaxation_time = 100
+    relaxation_time = 80
     laser_beam_sound_path = "res/sounds/laser.wav"
 
     global enemies
@@ -506,15 +550,36 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
     init_background_music()
     runned_once = False
 
+    start_time = time.time()
+    engagement_timer = start_time
+    next_difficulty = difficulty
 
+    speed_factor = float(2 ** (level/2 + difficulty - 1))
     # main game loop begins
     while running:
 
+
+        current_time = time.time()
+
+
         if not fused_queue.empty():
             pad = fused_queue.get()
-
+        if difficulty < 0:
+            gameover_no_engagement()
+        elapsed_time = current_time - engagement_timer
         if not engagement_queue.empty():
+            engagement_timer = current_time
             engagement = engagement_queue.get()
+            if engagement >= 0.4:
+                next_difficulty += engagement-0.2
+            else:
+                next_difficulty -= (0.4 - engagement)
+
+
+        else:
+            interpolation_ratio = elapsed_time / 10  # Linear interpolation ratio
+            difficulty += (next_difficulty - difficulty) * interpolation_ratio
+
 
         if not smile_queue.empty():
             if smile_queue.get() == "smile" or smile_queue.get() == "clench":
@@ -528,6 +593,12 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
                 blink = True
             else:
                 blink = False
+
+
+        if (difficulty >= max_difficulty_to_level_up) and (life != 0):
+            level_up()
+            engagement_timer = current_time
+            next_difficulty = 1
 
 
         # start of frame timing
@@ -612,13 +683,13 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
         # manipulate game objects based on events and player actions
         # player spaceship movement
         if RIGHT_ARROW_KEY_PRESSED:
-            player.x += player.dx
+            player.x += player.dx * speed_factor
         if LEFT_ARROW_KEY_PRESSED:
-            player.x -= player.dx
+            player.x -= player.dx * speed_factor
         if smile:
-            player.x += player.dx
+            player.x += player.dx * speed_factor
         else:
-            player.x -= player.dx
+            player.x -= player.dx * speed_factor
         # bullet firing
         if (SPACE_BAR_PRESSED or UP_ARROW_KEY_PRESSED or blink) and not bullet.fired:
             bullet.fired = True
@@ -643,7 +714,7 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
                         lasers[i].x = enemies[i].x + enemies[i].width / 2 - lasers[i].width / 2
                         lasers[i].y = enemies[i].y + lasers[i].height / 2
             # enemy movement
-            enemies[i].x += enemies[i].dx * float(2 ** (difficulty - 1))
+            enemies[i].x += enemies[i].dx * speed_factor
             # laser movement
             if lasers[i].beamed:
                 lasers[i].y += lasers[i].dy
