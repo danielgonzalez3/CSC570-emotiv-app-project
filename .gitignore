@@ -53,6 +53,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+src/Space Invaders/log.csv
 # Translations
 *.mo
 *.pot
