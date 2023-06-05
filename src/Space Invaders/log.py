@@ -1,84 +1,37 @@
 from cortex import Cortex
 import multiprocessing
-import matplotlib.pyplot as plt
-import mpl_toolkits.mplot3d.axes3d as p3
 
-def add_point(points, colors, fig, point: [float, float, float]):
-    # global points, colors
-    points.append(point)
-    colors.append([1, 0, 0, 1.0])  # default color is red
-    update(points, colors, len(points)-1, fig)
-
-def update(points, colors, num, fig):
-    ax = p3.Axes3D(fig)
-    ax.clear()  # Clear the plot
-
-    # Set the limits of the x, y, and z axes
-    # ax.set_xlim(x_scale)
-    # ax.set_ylim(y_scale)
-    # ax.set_zlim(z_scale)
-
-    ax.set_xlim([-3, 3])
-    ax.set_ylim([-3, 3])
-    ax.set_zlim([-3, 3])
-
-    points_to_pop = []
-    for i in range(len(colors)):
-        colors[i][3] -= 0.05
-        if colors[i][3] <= 0:
-            points_to_pop.append(i)
-
-    # Remove all the points that have faded away.
-    for i in sorted(points_to_pop, reverse=True):  # We pop the indices from highest to lowest.
-        points.pop(i)
-        colors.pop(i)
-
-    for point, color in zip(points, colors):
-        # ax.scatter(data[0, i:i+1], data[1, i:i+1], data[2, i:i+1], color=colors[i])
-        ax.scatter(*point, color=color)
-    text = ax.text2D(0.05, 0.95, f'Iteration: {num+1}', transform=ax.transAxes)
-
-def run_animation(points, colors, queue):
-    # ani = animation.FuncAnimation(fig, update_and_add_point, frames=100, interval=50)
-    fig = plt.figure()
-    # ax = p3.Axes3D(fig)
-
-    # Initialize a text object
-    # text = ax.text2D(0.05, 0.95, '', transform=ax.transAxes)
-    plt.ion()
-    plt.show()
-    while True:
-        if not queue.empty():
-            fused_vector = queue.get()
-            print(fused_vector)
-            add_point(points, colors, fig, fused_vector)
-        plt.draw()
-        plt.pause(0.01)
-
-        if not plt.get_fignums():
-            break
-
+pad_mapping = {
+    'Engagement': [1, 1, 1],
+    'Excitement': [1, 1, -1],
+    'Stress ': [-1, 1, -1],
+    'Relaxation': [1, -1, 1],
+    'Interest ': [1, 1, -1],
+    'Focus': [1, -1, 1]
+}
 def get_pad_vector(data):
     labels = ['eng.isActive', 'Engagement', 'exc.isActive', 'Excitement', 'Long term excitement. ', 'str.isActive', 'Stress ', 'rel.isActive', 'Relaxation', 'int.isActive', 'Interest ', 'foc.isActive', 'Focus']
-    pad_mapping = {
-        'Engagement': [1, 1, 1],
-        'Excitement': [1, 1, -1],
-        'Stress ': [-1, 1, -1],
-        'Relaxation': [1, -1, 1],
-        'Interest ': [1, 1, -1],
-        'Focus': [1, -1, 1]
-    }
+    mapping = pad_mapping.copy()
     for i in range(len(data['met'])):
         key = list(labels)[i]
         value = data['met'][i]
-        if key in pad_mapping:
-            pad_values = pad_mapping[key]
+        if key in mapping:
+            pad_values = mapping[key]
             multiplied_values = [v * value for v in pad_values]
-            pad_mapping[key] = multiplied_values
+            mapping[key] = multiplied_values
     fused_vector = [0, 0, 0]
-    for vector in pad_mapping.values():
+    for vector in mapping.values():
         fused_vector = [x + y for x, y in zip(fused_vector, vector)]
+    print(pad_mapping)
     return fused_vector
+
+def get_engagement_vector(data):
+    labels = ['eng.isActive', 'Engagement', 'exc.isActive', 'Excitement', 'Long term excitement. ', 'str.isActive', 'Stress ', 'rel.isActive', 'Relaxation', 'int.isActive', 'Interest ', 'foc.isActive', 'Focus']
+    for i in range(len(data['met'])):
+        key = list(labels)[i]
+        value = data['met'][i]
+        if key == "Engagement":
+            return value
 
 class Subcribe():
     """
@@ -108,13 +61,14 @@ class Subcribe():
     on_new_pow_data(*args, **kwargs):
         To handle band power data emitted from Cortex
     """
-    def __init__(self, app_client_id, app_client_secret, queue=None, **kwargs):
+    def __init__(self, app_client_id, app_client_secret, fused_queue=None,engagement_queue=None, **kwargs):
         """
         Constructs cortex client and bind a function to handle subscribed data streams
         If you do not want to log request and response message , set debug_mode = False. The default is True
         """
         print("Subscribe __init__")
-        self.queue = queue
+        self.fused_queue = fused_queue
+        self.engagement_queue = engagement_queue
         self.c = Cortex(app_client_id, app_client_secret, debug_mode=True, **kwargs)
         self.c.bind(create_session_done=self.on_create_session_done)
         self.c.bind(new_data_labels=self.on_new_data_labels)
@@ -271,8 +225,11 @@ class Subcribe():
 
         print('pm data: {}'.format(data))
         fused_vector = get_pad_vector(data)
-        if self.queue:
-            self.queue.put(fused_vector)
+        engagement = get_engagement_vector(data)
+        if self.fused_queue:
+            self.fused_queue.put(fused_vector)
+        if self.engagement_queue:
+            self.engagement_queue.put(engagement)
 
     def on_new_pow_data(self, *args, **kwargs):
         """
@@ -318,7 +275,7 @@ class Subcribe():
 #
 # -----------------------------------------------------------
 
-def main(queue):
+def main(fused_queue, engagement_queue):
 
     # Please fill your application clientId and clientSecret before running script
     # your_app_client_id = 'RMrZA8LTi5mdlFhwyy5iVL38pJm2Tua215X0Kc8R'
@@ -332,24 +289,9 @@ def main(queue):
     your_app_client_id = 'Awu9Nd8x6SIkxQOkgtmBvtbeOk6YsMxaviim8xRZ'
     your_app_client_secret = 'ON14cHcIKhYLPx7rwWlPCfdnom70MPZ4C4DQJ2qHfiVWTd3FZog8bT1bKOkri5AH6ZtpnGVKSp2YM7cBodTiI829N3gqAUVPGNVr11o9Bp73vbC3lZ7lSkb6ch8U0gIB'
 
-    s = Subcribe(your_app_client_id, your_app_client_secret, queue=queue)
+    s = Subcribe(your_app_client_id, your_app_client_secret, fused_queue=fused_queue, engagement_queue=engagement_queue)
 
     # list data streams
     streams = ['eeg','mot','met','pow', 'dev', 'met', 'fac']
     s.start(streams)
 
-if __name__ =='__main__':
-    queue = multiprocessing.Queue()
-    # vectors = []
-    points = []
-    colors = []
-
-    # fig = plt.figure()
-    receiver = multiprocessing.Process(target=run_animation, args=(points, colors, queue, ))
-    receiver.start()
-
-    sender = multiprocessing.Process(target=main, args=(queue,))
-    sender.start()
-    # main()
-
-# -----------------------------------------------------------

@@ -38,6 +38,7 @@ frame_count = 0
 fps = 0
 
 pad = 0
+engagement = 0
 
 # game objects
 player = type('Player', (), {})()
@@ -181,6 +182,7 @@ def scoreboard():
     difficulty_sprint = font.render("DIFFICULTY : " + str(difficulty), True, (255, 255, 255))
     life_sprint = font.render("LIFE LEFT : " + str(life) + " | " + ("@ " * life), True, (255, 255, 255))
     pad_sprint = font.render("PAD : " + str(pad), True, (255, 255, 255))
+    engagement_sprint = font.render("Engagement : " + str(engagement), True, (255, 255, 255))
     # performance info
     fps_sprint = font.render("FPS : " + str(fps), True, (255, 255, 255))
     frame_time_in_ms = round(single_frame_rendering_time * 1000, 2)
@@ -195,6 +197,7 @@ def scoreboard():
     window.blit(fps_sprint, (WIDTH - 80, y_offset))
     window.blit(frame_time_sprint, (WIDTH - 80, y_offset + 20))
     window.blit(pad_sprint, (x_offset, y_offset + 100))
+    window.blit(engagement_sprint, (x_offset, y_offset + 120))
 
 
 def collision_check(object1, object2):
@@ -449,7 +452,7 @@ def init_game():
                           shoot_probability, relaxation_time, laser_beam_sound_path)
         lasers.append(laser_obj)
 
-def start_game(queue):
+def start_game(fused_queue, engagement_queue):
     global WIDTH
     global HEIGHT
 
@@ -494,6 +497,7 @@ def start_game(queue):
     global background_img
 
     global pad
+    global engagement
     # init game
     init_game()
     init_background_music()
@@ -502,8 +506,11 @@ def start_game(queue):
     # main game loop begins
     while running:
 
-        if not queue.empty():
-            pad = queue.get()
+        if not fused_queue.empty():
+            pad = fused_queue.get()
+
+        if not engagement_queue.empty():
+            engagement = engagement_queue.get()
 
 
         # start of frame timing
@@ -697,12 +704,13 @@ def start_game(queue):
 
 if __name__ =='__main__':
     # start_game()
-    queue = multiprocessing.Queue()
+    fused_queue = multiprocessing.Queue()
+    engagement_queue = multiprocessing.Queue()
 
-    sender = multiprocessing.Process(target=main, args=(queue,))
+    sender = multiprocessing.Process(target=main, args=(fused_queue,engagement_queue, ))
     sender.start()
 
 
-    receiver = multiprocessing.Process(target=start_game, args=(queue,))
+    receiver = multiprocessing.Process(target=start_game, args=(fused_queue,engagement_queue,))
 
     receiver.start()
