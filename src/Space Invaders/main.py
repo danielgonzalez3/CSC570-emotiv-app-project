@@ -39,7 +39,8 @@ fps = 0
 
 pad = 0
 engagement = 0
-
+smile = False
+blink = False
 # game objects
 player = type('Player', (), {})()
 bullet = type('Bullet', (), {})()
@@ -452,7 +453,7 @@ def init_game():
                           shoot_probability, relaxation_time, laser_beam_sound_path)
         lasers.append(laser_obj)
 
-def start_game(fused_queue, engagement_queue):
+def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
     global WIDTH
     global HEIGHT
 
@@ -498,10 +499,13 @@ def start_game(fused_queue, engagement_queue):
 
     global pad
     global engagement
+    global smile
+    global blink
     # init game
     init_game()
     init_background_music()
     runned_once = False
+
 
     # main game loop begins
     while running:
@@ -511,6 +515,18 @@ def start_game(fused_queue, engagement_queue):
 
         if not engagement_queue.empty():
             engagement = engagement_queue.get()
+
+        if not smile_queue.empty():
+            if smile_queue.get() == "smile" or smile_queue.get() == "clench":
+                smile = True
+            else:
+                smile = False
+
+        if not blink_queue.empty():
+            if blink_queue.get() == "blink":
+                blink = True
+            else:
+                blink = False
 
 
         # start of frame timing
@@ -598,8 +614,12 @@ def start_game(fused_queue, engagement_queue):
             player.x += player.dx
         if LEFT_ARROW_KEY_PRESSED:
             player.x -= player.dx
+        if smile:
+            player.x += player.dx
+        else:
+            player.x -= player.dx
         # bullet firing
-        if (SPACE_BAR_PRESSED or UP_ARROW_KEY_PRESSED) and not bullet.fired:
+        if (SPACE_BAR_PRESSED or UP_ARROW_KEY_PRESSED or blink) and not bullet.fired:
             bullet.fired = True
             bullet.fire_sound.play()
             bullet.x = player.x + player.width / 2 - bullet.width / 2
@@ -706,11 +726,13 @@ if __name__ =='__main__':
     # start_game()
     fused_queue = multiprocessing.Queue()
     engagement_queue = multiprocessing.Queue()
+    smile_queue = multiprocessing.Queue()
+    blink_queue = multiprocessing.Queue()
 
-    sender = multiprocessing.Process(target=main, args=(fused_queue,engagement_queue, ))
+    sender = multiprocessing.Process(target=main, args=(fused_queue,engagement_queue, smile_queue, blink_queue))
     sender.start()
 
 
-    receiver = multiprocessing.Process(target=start_game, args=(fused_queue,engagement_queue,))
-
+    receiver = multiprocessing.Process(target=start_game, args=(fused_queue,engagement_queue, smile_queue, blink_queue))
+    time.sleep(1)
     receiver.start()

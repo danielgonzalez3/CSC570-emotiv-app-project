@@ -61,7 +61,7 @@ class Subcribe():
     on_new_pow_data(*args, **kwargs):
         To handle band power data emitted from Cortex
     """
-    def __init__(self, app_client_id, app_client_secret, fused_queue=None,engagement_queue=None, **kwargs):
+    def __init__(self, app_client_id, app_client_secret, fused_queue=None,engagement_queue=None, smile_queue=None,blink_queue=None, **kwargs):
         """
         Constructs cortex client and bind a function to handle subscribed data streams
         If you do not want to log request and response message , set debug_mode = False. The default is True
@@ -69,6 +69,8 @@ class Subcribe():
         print("Subscribe __init__")
         self.fused_queue = fused_queue
         self.engagement_queue = engagement_queue
+        self.smile_queue = smile_queue
+        self.blink_queue = blink_queue
         self.c = Cortex(app_client_id, app_client_secret, debug_mode=True, **kwargs)
         self.c.bind(create_session_done=self.on_create_session_done)
         self.c.bind(new_data_labels=self.on_new_data_labels)
@@ -247,6 +249,11 @@ class Subcribe():
     def on_new_fe_data(self, *args, **kwargs):
         data = kwargs.get('data')
         # print('fe data: {}'.format(data))
+        if self.smile_queue:
+            self.smile_queue.put(data['lAct'])
+        if self.blink_queue:
+            self.blink_queue.put(data['eyeAct'])
+
 
     # callbacks functions
     def on_create_session_done(self, *args, **kwargs):
@@ -275,7 +282,7 @@ class Subcribe():
 #
 # -----------------------------------------------------------
 
-def main(fused_queue, engagement_queue):
+def main(fused_queue, engagement_queue, smile_queue, blink_queue):
 
     # Please fill your application clientId and clientSecret before running script
     # your_app_client_id = 'RMrZA8LTi5mdlFhwyy5iVL38pJm2Tua215X0Kc8R'
@@ -289,7 +296,7 @@ def main(fused_queue, engagement_queue):
     your_app_client_id = 'Awu9Nd8x6SIkxQOkgtmBvtbeOk6YsMxaviim8xRZ'
     your_app_client_secret = 'ON14cHcIKhYLPx7rwWlPCfdnom70MPZ4C4DQJ2qHfiVWTd3FZog8bT1bKOkri5AH6ZtpnGVKSp2YM7cBodTiI829N3gqAUVPGNVr11o9Bp73vbC3lZ7lSkb6ch8U0gIB'
 
-    s = Subcribe(your_app_client_id, your_app_client_secret, fused_queue=fused_queue, engagement_queue=engagement_queue)
+    s = Subcribe(your_app_client_id, your_app_client_secret, fused_queue=fused_queue, engagement_queue=engagement_queue, smile_queue=smile_queue, blink_queue=blink_queue)
 
     # list data streams
     streams = ['eeg','mot','met','pow', 'dev', 'met', 'fac']
