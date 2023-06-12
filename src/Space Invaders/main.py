@@ -41,6 +41,9 @@ pad = 0
 engagement = 0
 smile = False
 blink = False
+relax = 0
+red_alpha = 0
+blue_alpha = 0
 # game objects
 player = type('Player', (), {})()
 bullet = type('Bullet', (), {})()
@@ -57,9 +60,9 @@ UP_ARROW_KEY_PRESSED = 0
 SPACE_BAR_PRESSED = 0
 ENTER_KEY_PRESSED = 0
 ESC_KEY_PRESSED = 0
-
+window_initialized = False
 # create display window
-window = pygame.display.set_mode((WIDTH, HEIGHT))
+window = None
 pygame.display.set_caption("Space Invaders")
 window_icon = pygame.image.load("res/images/alien.png")
 pygame.display.set_icon(window_icon)
@@ -425,7 +428,11 @@ def init_game():
     global level_up_sound
     global game_over_sound
     global weapon_annihilation_sound
-
+    global window
+    global window_initialized
+    if not window_initialized:
+        window = pygame.display.set_mode((WIDTH, HEIGHT))
+        window_initialized = True
     pause_sound = mixer.Sound("res/sounds/pause.wav")
     level_up_sound = mixer.Sound("res/sounds/1up.wav")
     game_over_sound = mixer.Sound("res/sounds/gameover.wav")
@@ -497,7 +504,7 @@ def init_game():
                           shoot_probability, relaxation_time, laser_beam_sound_path)
         lasers.append(laser_obj)
 
-def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
+def start_game(fused_queue, engagement_queue, smile_queue, blink_queue, stress_relax_queue):
     global WIDTH
     global HEIGHT
 
@@ -532,7 +539,7 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
     global ENTER_KEY_PRESSED
     global ESC_KEY_PRESSED
 
-    global window
+    # global window
 
     global pause_sound
     global level_up_sound
@@ -545,6 +552,9 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
     global engagement
     global smile
     global blink
+    global relax
+    global red_alpha
+    global blue_alpha
     # init game
     init_game()
     init_background_music()
@@ -564,6 +574,7 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
 
         if not fused_queue.empty():
             pad = fused_queue.get()
+            # print(pad)
         if difficulty < 0:
             gameover_no_engagement()
         elapsed_time = current_time - engagement_timer
@@ -582,17 +593,58 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
 
 
         if not smile_queue.empty():
-            if smile_queue.get() == "smile" or smile_queue.get() == "clench":
+            # print(smile_queue.get())
+            if smile_queue.get() == "laugh" or smile_queue.get() == "smile" or smile_queue.get() == "clench":
                 smile = True
             else:
                 smile = False
 
+
         if not blink_queue.empty():
-            #  or blink_queue.get() == "winkL" or blink_queue.get() == "winkR"
+
+            if blink_queue.get() == "blink":
+                print(blink_queue.get())
             if blink_queue.get() == "blink":
                 blink = True
             else:
                 blink = False
+
+
+
+
+        if not stress_relax_queue.empty():
+            relax = stress_relax_queue.get()
+            relax = relax*100
+            # print(relax)
+            # print(red_alpha, blue_alpha)
+
+
+        else:
+            interpolation_ratio = elapsed_time / 10
+            if relax > 0:
+                blue_alpha += (relax+20 - blue_alpha) * interpolation_ratio
+                red_alpha += (0 - red_alpha) * interpolation_ratio
+            else:
+                blue_alpha += (0 - blue_alpha) * interpolation_ratio
+                red_alpha += (-relax+20 - red_alpha) * interpolation_ratio
+        if red_alpha > 100:
+            red_alpha = 100
+        if blue_alpha < 0:
+            blue_alpha = 0
+        if blue_alpha > 100:
+            blue_alpha = 100
+        if red_alpha < 0:
+            red_alpha = 0
+
+
+
+
+        overlay_color_red = pygame.Surface((WIDTH, HEIGHT))
+        overlay_color_blue = pygame.Surface((WIDTH, HEIGHT))
+        overlay_color_red.set_alpha(red_alpha)
+        overlay_color_blue.set_alpha(blue_alpha)
+        overlay_color_blue.fill((0, 0, 255))
+        overlay_color_red.fill((255, 0, 0))
 
 
         if (difficulty >= max_difficulty_to_level_up) and (life != 0):
@@ -605,8 +657,17 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
         start_time = time.time()
 
         # background
+
+
+
         window.fill((0, 0, 0))
         window.blit(background_img, (0, 0))
+        window.blit(overlay_color_red, (0, 0))
+        window.blit(overlay_color_blue, (0, 0))
+
+
+        # Update the display
+        # pygame.display.flip()
 
         # register events
         for event in pygame.event.get():
@@ -795,16 +856,27 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue):
 
 
 if __name__ =='__main__':
+    # global window
+    # window = pygame.display.set_mode((WIDTH, HEIGHT))
+
     # start_game()
     fused_queue = multiprocessing.Queue()
     engagement_queue = multiprocessing.Queue()
     smile_queue = multiprocessing.Queue()
     blink_queue = multiprocessing.Queue()
+    stress_relax_queue = multiprocessing.Queue()
+    print("before")
 
-    sender = multiprocessing.Process(target=main, args=(fused_queue,engagement_queue, smile_queue, blink_queue))
+    sender = multiprocessing.Process(target=main, args=(fused_queue,engagement_queue, smile_queue, blink_queue, stress_relax_queue))
     sender.start()
+    print("mid")
 
-
-    receiver = multiprocessing.Process(target=start_game, args=(fused_queue,engagement_queue, smile_queue, blink_queue))
+    receiver = multiprocessing.Process(target=start_game, args=(fused_queue,engagement_queue, smile_queue, blink_queue, stress_relax_queue))
     time.sleep(1)
     receiver.start()
+    print("after")
+
+    receiver.join()
+    if sender.is_alive():
+        sender.terminate()
+    sender.join()

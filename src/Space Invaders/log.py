@@ -25,6 +25,28 @@ def get_pad_vector(data):
     # print(pad_mapping)
     return fused_vector
 
+
+def get_stress_relax_vector(data):
+    mapping = {
+        'Stress ': [-1, 1, -1],
+        'Relaxation': [1, -1, 1],
+    }
+    labels = ['eng.isActive', 'Engagement', 'exc.isActive', 'Excitement', 'Long term excitement. ', 'str.isActive', 'Stress ', 'rel.isActive', 'Relaxation', 'int.isActive', 'Interest ', 'foc.isActive', 'Focus']
+    # mapping = pad_mapping.copy()
+    for i in range(len(data['met'])):
+        key = list(labels)[i]
+        value = data['met'][i]
+        if key in mapping:
+            pad_values = mapping[key]
+            multiplied_values = [v * value for v in pad_values]
+            mapping[key] = multiplied_values
+    fused_vector = [0, 0, 0]
+    for vector in mapping.values():
+        fused_vector = [x + y for x, y in zip(fused_vector, vector)]
+    # print(pad_mapping)
+    return fused_vector[0]
+
+
 def get_engagement_vector(data):
     labels = ['eng.isActive', 'Engagement', 'exc.isActive', 'Excitement', 'Long term excitement. ', 'str.isActive', 'Stress ', 'rel.isActive', 'Relaxation', 'int.isActive', 'Interest ', 'foc.isActive', 'Focus']
     for i in range(len(data['met'])):
@@ -61,17 +83,18 @@ class Subcribe():
     on_new_pow_data(*args, **kwargs):
         To handle band power data emitted from Cortex
     """
-    def __init__(self, app_client_id, app_client_secret, fused_queue=None,engagement_queue=None, smile_queue=None,blink_queue=None, **kwargs):
+    def __init__(self, app_client_id, app_client_secret, fused_queue=None,engagement_queue=None, smile_queue=None,blink_queue=None,stress_relax_queue=None, **kwargs):
         """
         Constructs cortex client and bind a function to handle subscribed data streams
         If you do not want to log request and response message , set debug_mode = False. The default is True
         """
-        print("Subscribe __init__")
+        # print("Subscribe __init__")
         self.fused_queue = fused_queue
         self.engagement_queue = engagement_queue
         self.smile_queue = smile_queue
         self.blink_queue = blink_queue
-        self.c = Cortex(app_client_id, app_client_secret, debug_mode=True, **kwargs)
+        self.stress_relax_queue = stress_relax_queue
+        self.c = Cortex(app_client_id, app_client_secret, debug_mode=False, **kwargs)
         self.c.bind(create_session_done=self.on_create_session_done)
         self.c.bind(new_data_labels=self.on_new_data_labels)
         self.c.bind(new_eeg_data=self.on_new_eeg_data)
@@ -170,7 +193,7 @@ class Subcribe():
         data = kwargs.get('data')
         stream_name = data['streamName']
         stream_labels = data['labels']
-        print('{} labels are : {}'.format(stream_name, stream_labels))
+        # print('{} labels are : {}'.format(stream_name, stream_labels))
 
     def on_new_eeg_data(self, *args, **kwargs):
         """
@@ -228,11 +251,13 @@ class Subcribe():
         # print('pm data: {}'.format(data))
         fused_vector = get_pad_vector(data)
         engagement = get_engagement_vector(data)
+        stress_relax = get_stress_relax_vector(data)
         if self.fused_queue:
             self.fused_queue.put(fused_vector)
         if self.engagement_queue:
             self.engagement_queue.put(engagement)
-
+        if self.stress_relax_queue:
+            self.stress_relax_queue.put(stress_relax)
     def on_new_pow_data(self, *args, **kwargs):
         """
         To handle band power data emitted from Cortex
@@ -252,7 +277,8 @@ class Subcribe():
         if self.smile_queue:
             self.smile_queue.put(data['lAct'])
         if self.blink_queue:
-            if data['eyeAct'] == "blink" or data['eyeAct'] == "winkL" or data['eyeAct'] == "winkR":
+            if data['eyeAct'] == "blink" or data['eyeAct'] == "lookL" or data['eyeAct'] == "lookR" \
+                    or data['eyeAct'] == "winkR" or data['eyeAct'] == "winkL":
                 self.blink_queue.put("blink")
             else:
                 self.blink_queue.put(data['eyeAct'])
@@ -260,7 +286,7 @@ class Subcribe():
 
     # callbacks functions
     def on_create_session_done(self, *args, **kwargs):
-        print('on_create_session_done')
+        # print('on_create_session_done')
 
         # subribe data
         self.sub(self.streams)
@@ -285,7 +311,7 @@ class Subcribe():
 #
 # -----------------------------------------------------------
 
-def main(fused_queue, engagement_queue, smile_queue, blink_queue):
+def main(fused_queue, engagement_queue, smile_queue, blink_queue, stress_relax_queue):
 
     # Please fill your application clientId and clientSecret before running script
     # your_app_client_id = 'RMrZA8LTi5mdlFhwyy5iVL38pJm2Tua215X0Kc8R'
@@ -299,7 +325,7 @@ def main(fused_queue, engagement_queue, smile_queue, blink_queue):
     your_app_client_id = 'Awu9Nd8x6SIkxQOkgtmBvtbeOk6YsMxaviim8xRZ'
     your_app_client_secret = 'ON14cHcIKhYLPx7rwWlPCfdnom70MPZ4C4DQJ2qHfiVWTd3FZog8bT1bKOkri5AH6ZtpnGVKSp2YM7cBodTiI829N3gqAUVPGNVr11o9Bp73vbC3lZ7lSkb6ch8U0gIB'
 
-    s = Subcribe(your_app_client_id, your_app_client_secret, fused_queue=fused_queue, engagement_queue=engagement_queue, smile_queue=smile_queue, blink_queue=blink_queue)
+    s = Subcribe(your_app_client_id, your_app_client_secret, fused_queue=fused_queue, engagement_queue=engagement_queue, smile_queue=smile_queue, blink_queue=blink_queue, stress_relax_queue=stress_relax_queue)
 
     # list data streams
     streams = ['eeg','mot','met','pow', 'dev', 'met', 'fac']
