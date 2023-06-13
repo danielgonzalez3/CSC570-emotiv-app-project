@@ -18,3 +18,15 @@ Finally, start the application by running the command below:
 ```bash
 python3 src/main.py
 ```
+Power on and connect your emotiv simulated device/headset, confirm once in EMOTIV launcher to gain access.<br />
+Movement Controls:
+```bash
+Smile/laugh/cluench: move to the right
+Not smile/laugh/cluench: move to the left
+Blink/Wink with one eye or both eyes: fire
+```
+Other Controls:
+```bash
+Be more engagement in the game to increase difficulty and level up!
+Don't be too stress or else your background color will fade to red.
+```
