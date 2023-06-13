@@ -248,7 +248,7 @@ class Subcribe():
         data = kwargs.get('data')
 
 
-        # print('pm data: {}'.format(data))
+        print('pm data: {}'.format(data))
         fused_vector = get_pad_vector(data)
         engagement = get_engagement_vector(data)
         stress_relax = get_stress_relax_vector(data)

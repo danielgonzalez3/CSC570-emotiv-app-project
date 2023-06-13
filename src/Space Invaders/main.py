@@ -189,6 +189,7 @@ def scoreboard():
     life_sprint = font.render("LIFE LEFT : " + str(life) + " | " + ("@ " * life), True, (255, 255, 255))
     pad_sprint = font.render("PAD : " + str(pad), True, (255, 255, 255))
     engagement_sprint = font.render("Engagement : " + str(engagement), True, (255, 255, 255))
+    relax_sprint = font.render("Relax : " + str(relax), True, (255, 255, 255))
     # performance info
     fps_sprint = font.render("FPS : " + str(fps), True, (255, 255, 255))
     frame_time_in_ms = round(single_frame_rendering_time * 1000, 2)
@@ -204,6 +205,7 @@ def scoreboard():
     window.blit(frame_time_sprint, (WIDTH - 80, y_offset + 20))
     window.blit(pad_sprint, (x_offset, y_offset + 100))
     window.blit(engagement_sprint, (x_offset, y_offset + 120))
+    window.blit(relax_sprint, (x_offset, y_offset + 140))
 
 
 def collision_check(object1, object2):
@@ -581,6 +583,7 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue, stress_r
         if not engagement_queue.empty():
             engagement_timer = current_time
             engagement = engagement_queue.get()
+            print("Engagement: ", engagement)
             if engagement >= 0.4:
                 next_difficulty += engagement-0.2
             else:
@@ -595,6 +598,7 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue, stress_r
         if not smile_queue.empty():
             # print(smile_queue.get())
             if smile_queue.get() == "laugh" or smile_queue.get() == "smile" or smile_queue.get() == "clench":
+                print(smile_queue.get())
                 smile = True
             else:
                 smile = False
@@ -614,6 +618,7 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue, stress_r
 
         if not stress_relax_queue.empty():
             relax = stress_relax_queue.get()
+            print("Relax/Stress: ", relax)
             relax = relax*100
             # print(relax)
             # print(red_alpha, blue_alpha)
@@ -621,12 +626,16 @@ def start_game(fused_queue, engagement_queue, smile_queue, blink_queue, stress_r
 
         else:
             interpolation_ratio = elapsed_time / 10
+            # print(interpolation_ratio)
             if relax > 0:
-                blue_alpha += (relax+20 - blue_alpha) * interpolation_ratio
-                red_alpha += (0 - red_alpha) * interpolation_ratio
+                blue_alpha += (relax - blue_alpha) * interpolation_ratio * 0.05
+                if red_alpha > 0:
+                    red_alpha += (-relax - red_alpha) * interpolation_ratio* 0.05
             else:
-                blue_alpha += (0 - blue_alpha) * interpolation_ratio
-                red_alpha += (-relax+20 - red_alpha) * interpolation_ratio
+
+                red_alpha += (-relax - red_alpha) * interpolation_ratio* 0.05
+                if blue_alpha > 0:
+                    blue_alpha += (relax - blue_alpha) * interpolation_ratio* 0.05
         if red_alpha > 100:
             red_alpha = 100
         if blue_alpha < 0:
@@ -865,16 +874,13 @@ if __name__ =='__main__':
     smile_queue = multiprocessing.Queue()
     blink_queue = multiprocessing.Queue()
     stress_relax_queue = multiprocessing.Queue()
-    print("before")
 
     sender = multiprocessing.Process(target=main, args=(fused_queue,engagement_queue, smile_queue, blink_queue, stress_relax_queue))
     sender.start()
-    print("mid")
 
     receiver = multiprocessing.Process(target=start_game, args=(fused_queue,engagement_queue, smile_queue, blink_queue, stress_relax_queue))
     time.sleep(1)
     receiver.start()
-    print("after")
 
     receiver.join()
     if sender.is_alive():

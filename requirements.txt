@@ -1,1 +1,5 @@
-pygame==2.3.0
+autobahn_rce==0.6.0.5
+PyDispatcher==2.0.5
+PyDispatcher==2.0.7
+pygame==2.4.0
+websocket_client==0.58.0
