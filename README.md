@@ -16,5 +16,5 @@ pip3 install -r requirements.txt
 ```
 Finally, start the application by running the command below:
 ```bash
-python3 src/driver.py
+python3 src/main.py
 ```
