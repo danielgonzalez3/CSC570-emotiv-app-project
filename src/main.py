@@ -83,6 +83,7 @@ background_music_paths = ["res/sounds/Space_Invaders_Music.ogg",
                           "res/sounds/Space_Invaders_Music_x32.ogg"]
 
 
+# function for background music
 def init_background_music():
     if difficulty == 1:
         mixer.quit()
@@ -174,7 +175,7 @@ class Laser:
         if self.beamed:
             window.blit(self.img, (self.x, self.y))
 
-
+# function for scoreboard in the top left
 def scoreboard():
     x_offset = 10
     y_offset = 10
@@ -225,7 +226,7 @@ def collision_check(object1, object2):
 #     distance = math.sqrt(math.pow((x2_cm - x1_cm), 2) + math.pow((y2_cm - y1_cm), 2))
 #     return distance < ((object1_diameter + object2_diameter) / 2)
 
-
+# level up animation when the player reaches the threshold for new level/difficulty
 def level_up():
     global life
     global level
@@ -295,7 +296,7 @@ def kill_enemy(player_obj, bullet_obj, enemy_obj):
     print("difficulty:", difficulty)
     respawn(enemy_obj)
 
-
+# respawn function
 def rebirth(player_obj):
     player_obj.x = (WIDTH / 2) - (player_obj.width / 2)
     player_obj.y = (HEIGHT / 10) * 9 - (player_obj.height / 2)
